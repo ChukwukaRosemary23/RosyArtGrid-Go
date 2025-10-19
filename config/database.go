@@ -37,8 +37,12 @@ func autoMigrate() {
 	err := DB.AutoMigrate(
 		&User{},
 		&Company{},
-		&Job{},
-		&Application{},
+		&Project{},
+		&ProjectImage{},
+		&Like{},
+		&Comment{},
+		&Follow{},
+		&Category{},
 	)
 	if err != nil {
 		log.Printf("Auto-migration error: %v", err)
@@ -47,68 +51,111 @@ func autoMigrate() {
 	}
 }
 
-// User model - for job seekers, employers, and admins
+// User model - for creatives, companies, and admins
 type User struct {
-	ID        uint      `gorm:"primaryKey"`
-	Name      string    `gorm:"type:varchar(255);not null"`
-	Email     string    `gorm:"type:varchar(255);unique;not null"`
-	Password  string    `gorm:"type:varchar(255);not null"`
-	Role      string    `gorm:"type:varchar(50);default:'job_seeker'"` // job_seeker, employer, admin
-	Phone     string    `gorm:"type:varchar(20)"`
-	Location  string    `gorm:"type:varchar(255)"`
-	Bio       string    `gorm:"type:text"`
-	ResumeURL string    `gorm:"type:text"` // Cloudinary URL for resume
-	Verified  bool      `gorm:"default:false"`
-	CompanyID *uint     `gorm:"index"` // For employers - links to Company
-	Company   *Company  `gorm:"foreignKey:CompanyID"`
-	CreatedAt time.Time `gorm:"autoCreateTime"`
-	UpdatedAt time.Time `gorm:"autoUpdateTime"`
+	ID          uint      `gorm:"primaryKey"`
+	Name        string    `gorm:"type:varchar(255);not null"`
+	Email       string    `gorm:"type:varchar(255);unique;not null"`
+	Password    string    `gorm:"type:varchar(255);not null"`
+	Role        string    `gorm:"type:varchar(50);default:'creative'"` // creative, company, admin
+	Bio         string    `gorm:"type:text"`
+	Location    string    `gorm:"type:varchar(255)"`
+	Skills      string    `gorm:"type:text"` // Comma-separated
+	Website     string    `gorm:"type:varchar(255)"`
+	BehanceURL  string    `gorm:"type:varchar(255)"`
+	DribbbleURL string    `gorm:"type:varchar(255)"`
+	LinkedInURL string    `gorm:"type:varchar(255)"`
+	TwitterURL  string    `gorm:"type:varchar(255)"`
+	AvatarURL   string    `gorm:"type:text"` // Profile picture
+	ForHire     bool      `gorm:"default:false"`
+	Verified    bool      `gorm:"default:false"`
+	CompanyID   *uint     `gorm:"index"` // For company accounts
+	Company     *Company  `gorm:"foreignKey:CompanyID"`
+	CreatedAt   time.Time `gorm:"autoCreateTime"`
+	UpdatedAt   time.Time `gorm:"autoUpdateTime"`
 }
 
-// Company model - for employer organizations
+// Company model - for recruiters/organizations
 type Company struct {
 	ID          uint      `gorm:"primaryKey"`
 	Name        string    `gorm:"type:varchar(255);not null"`
 	Description string    `gorm:"type:text"`
 	Website     string    `gorm:"type:varchar(255)"`
 	Location    string    `gorm:"type:varchar(255)"`
-	LogoURL     string    `gorm:"type:text"` // Company logo
+	LogoURL     string    `gorm:"type:text"`
 	Industry    string    `gorm:"type:varchar(100)"`
-	Size        string    `gorm:"type:varchar(50)"` // e.g., "1-10", "11-50", "51-200"
+	Size        string    `gorm:"type:varchar(50)"`
 	CreatedAt   time.Time `gorm:"autoCreateTime"`
 	UpdatedAt   time.Time `gorm:"autoUpdateTime"`
 }
 
-// Job model - job postings
-type Job struct {
-	ID          uint       `gorm:"primaryKey"`
-	Title       string     `gorm:"type:varchar(255);not null"`
-	Description string     `gorm:"type:text;not null"`
-	CompanyID   uint       `gorm:"not null;index"`
-	Company     Company    `gorm:"foreignKey:CompanyID"`
-	Location    string     `gorm:"type:varchar(255)"`
-	JobType     string     `gorm:"type:varchar(50)"`                  // full-time, part-time, contract, remote
-	Salary      string     `gorm:"type:varchar(100)"`                 // e.g., "$50k - $80k"
-	Experience  string     `gorm:"type:varchar(100)"`                 // e.g., "2-5 years"
-	Skills      string     `gorm:"type:text"`                         // Comma-separated or JSON
-	Status      string     `gorm:"type:varchar(50);default:'active'"` // active, closed, pending
-	PostedBy    uint       `gorm:"not null;index"`                    // User ID of employer
-	Poster      User       `gorm:"foreignKey:PostedBy"`
-	CreatedAt   time.Time  `gorm:"autoCreateTime"`
-	UpdatedAt   time.Time  `gorm:"autoUpdateTime"`
-	DeletedAt   *time.Time `gorm:"index"`
+// Project model - creative work showcase (replaces Job)
+type Project struct {
+	ID          uint           `gorm:"primaryKey"`
+	Title       string         `gorm:"type:varchar(255);not null"`
+	Description string         `gorm:"type:text;not null"`
+	UserID      uint           `gorm:"not null;index"`
+	User        User           `gorm:"foreignKey:UserID"`
+	CategoryID  uint           `gorm:"not null;index"`
+	Category    Category       `gorm:"foreignKey:CategoryID"`
+	Tags        string         `gorm:"type:text"` // Comma-separated
+	CoverImage  string         `gorm:"type:text"` // Main cover image URL
+	Images      []ProjectImage `gorm:"foreignKey:ProjectID"`
+	Views       int            `gorm:"default:0"`
+	LikesCount  int            `gorm:"default:0"`
+	Featured    bool           `gorm:"default:false"` // For admin to feature projects
+	CreatedAt   time.Time      `gorm:"autoCreateTime"`
+	UpdatedAt   time.Time      `gorm:"autoUpdateTime"`
+	DeletedAt   *time.Time     `gorm:"index"`
 }
 
-// Application model - job applications
-type Application struct {
+// ProjectImage model - multiple images per project
+type ProjectImage struct {
+	ID        uint      `gorm:"primaryKey"`
+	ProjectID uint      `gorm:"not null;index"`
+	ImageURL  string    `gorm:"type:text;not null"`
+	Order     int       `gorm:"default:0"` // For ordering images
+	CreatedAt time.Time `gorm:"autoCreateTime"`
+}
+
+// Category model - creative categories
+type Category struct {
+	ID        uint      `gorm:"primaryKey"`
+	Name      string    `gorm:"type:varchar(100);unique;not null"` // e.g., Graphic Design, Photography
+	Slug      string    `gorm:"type:varchar(100);unique;not null"` // URL-friendly name
+	Icon      string    `gorm:"type:varchar(50)"`                  // Emoji or icon class
+	CreatedAt time.Time `gorm:"autoCreateTime"`
+	UpdatedAt time.Time `gorm:"autoUpdateTime"`
+}
+
+// Like model - users like projects
+type Like struct {
+	ID        uint      `gorm:"primaryKey"`
+	UserID    uint      `gorm:"not null;index"`
+	User      User      `gorm:"foreignKey:UserID"`
+	ProjectID uint      `gorm:"not null;index"`
+	Project   Project   `gorm:"foreignKey:ProjectID"`
+	CreatedAt time.Time `gorm:"autoCreateTime"`
+}
+
+// Comment model - users comment on projects
+type Comment struct {
+	ID        uint      `gorm:"primaryKey"`
+	UserID    uint      `gorm:"not null;index"`
+	User      User      `gorm:"foreignKey:UserID"`
+	ProjectID uint      `gorm:"not null;index"`
+	Project   Project   `gorm:"foreignKey:ProjectID"`
+	Content   string    `gorm:"type:text;not null"`
+	CreatedAt time.Time `gorm:"autoCreateTime"`
+	UpdatedAt time.Time `gorm:"autoUpdateTime"`
+}
+
+// Follow model - users follow other users
+type Follow struct {
 	ID          uint      `gorm:"primaryKey"`
-	JobID       uint      `gorm:"not null;index"`
-	Job         Job       `gorm:"foreignKey:JobID"`
-	UserID      uint      `gorm:"not null;index"`
-	User        User      `gorm:"foreignKey:UserID"`
-	ResumeURL   string    `gorm:"type:text;not null"` // Cloudinary URL
-	CoverLetter string    `gorm:"type:text"`
-	Status      string    `gorm:"type:varchar(50);default:'pending'"` // pending, reviewed, shortlisted, rejected, accepted
+	FollowerID  uint      `gorm:"not null;index"` // User who follows
+	FollowingID uint      `gorm:"not null;index"` // User being followed
+	Follower    User      `gorm:"foreignKey:FollowerID"`
+	Following   User      `gorm:"foreignKey:FollowingID"`
 	CreatedAt   time.Time `gorm:"autoCreateTime"`
-	UpdatedAt   time.Time `gorm:"autoUpdateTime"`
 }

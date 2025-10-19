@@ -18,9 +18,9 @@ func RegisterUser(c *gin.Context) {
 		return
 	}
 
-	// Validate role
-	if req.Role != "job_seeker" && req.Role != "employer" {
-		req.Role = "job_seeker" // Default to job_seeker
+	// Validate role - changed from job_seeker/employer to creative/company
+	if req.Role != "creative" && req.Role != "company" {
+		req.Role = "creative" // Default to creative
 	}
 
 	// Check if email already exists
@@ -43,7 +43,7 @@ func RegisterUser(c *gin.Context) {
 		Email:    req.Email,
 		Password: string(hashedPassword),
 		Role:     req.Role,
-		Verified: true, // Auto-verify for simplicity (you can add email verification later)
+		Verified: true,
 	}
 
 	if err := config.DB.Create(&user).Error; err != nil {
@@ -105,10 +105,8 @@ func LoginUser(c *gin.Context) {
 		Name:      user.Name,
 		Email:     user.Email,
 		Role:      user.Role,
-		Phone:     user.Phone,
 		Location:  user.Location,
 		Bio:       user.Bio,
-		ResumeURL: user.ResumeURL,
 		CreatedAt: user.CreatedAt,
 	}
 
@@ -147,10 +145,8 @@ func GetProfile(c *gin.Context) {
 		Name:      user.Name,
 		Email:     user.Email,
 		Role:      user.Role,
-		Phone:     user.Phone,
 		Location:  user.Location,
 		Bio:       user.Bio,
-		ResumeURL: user.ResumeURL,
 		CreatedAt: user.CreatedAt,
 	}
 
@@ -178,7 +174,6 @@ func UpdateProfile(c *gin.Context) {
 
 	var req struct {
 		Name     string `json:"name"`
-		Phone    string `json:"phone"`
 		Location string `json:"location"`
 		Bio      string `json:"bio"`
 	}
@@ -191,7 +186,6 @@ func UpdateProfile(c *gin.Context) {
 	// Update user
 	result := config.DB.Model(&config.User{}).Where("id = ?", userID).Updates(map[string]interface{}{
 		"name":     req.Name,
-		"phone":    req.Phone,
 		"location": req.Location,
 		"bio":      req.Bio,
 	})

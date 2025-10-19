@@ -15,14 +15,26 @@ func SetupRoutes(r *gin.Engine) {
 		auth.POST("/login", handlers.LoginUser)
 	}
 
-	// Public job routes
+	// Public routes
 	public := r.Group("/api")
 	{
-		public.GET("/jobs", handlers.GetJobs)
-		public.GET("/jobs/:id", handlers.GetJob)
+		// Browse projects
+		public.GET("/projects", handlers.GetProjects)
+		public.GET("/projects/:id", handlers.GetProject)
+
+		// Categories
+		public.GET("/categories", handlers.GetCategories)
+
+		// Project likes and comments (public view)
+		public.GET("/projects/:id/likes", handlers.GetProjectLikes)
+		public.GET("/projects/:id/comments", handlers.GetProjectComments)
+
+		// User followers/following (public view)
+		public.GET("/users/:id/followers", handlers.GetUserFollowers)
+		public.GET("/users/:id/following", handlers.GetUserFollowing)
 	}
 
-	// Protected routes (job seekers and employers)
+	// Protected routes (requires authentication)
 	protected := r.Group("/api")
 	protected.Use(middleware.AuthMiddleware())
 	{
@@ -30,51 +42,25 @@ func SetupRoutes(r *gin.Engine) {
 		protected.GET("/profile", handlers.GetProfile)
 		protected.PUT("/profile", handlers.UpdateProfile)
 
-		// Resume upload (job seekers)
-		protected.POST("/upload_resume", handlers.UploadResume)
+		// Upload
+		protected.POST("/upload/image", handlers.UploadImage)
+		protected.POST("/upload/images", handlers.UploadMultipleImages)
+		protected.POST("/upload/avatar", handlers.UploadAvatar)
 
-		// Job applications (job seekers)
-		protected.POST("/jobs/:id/apply", handlers.ApplyForJob)
-		protected.GET("/my_applications", handlers.GetMyApplications)
-	}
+		// Projects
+		protected.POST("/projects", handlers.CreateProject)
+		protected.GET("/my-projects", handlers.GetMyProjects)
+		protected.PUT("/projects/:id", handlers.UpdateProject)
+		protected.DELETE("/projects/:id", handlers.DeleteProject)
 
-	// Employer routes
-	employer := r.Group("/api/employer")
-	employer.Use(middleware.AuthMiddleware(), middleware.EmployerMiddleware())
-	{
-		// Company management
-		employer.POST("/company", handlers.CreateCompany)
-		employer.GET("/company", handlers.GetMyCompany)
-		employer.PUT("/company", handlers.UpdateCompany)
-		employer.POST("/company/logo", handlers.UploadCompanyLogo)
+		// Social features
+		protected.POST("/projects/:id/like", handlers.LikeProject)
+		protected.DELETE("/projects/:id/unlike", handlers.UnlikeProject)
+		protected.POST("/projects/:id/comments", handlers.AddComment)
+		protected.DELETE("/comments/:id", handlers.DeleteComment)
 
-		// Job management
-		employer.POST("/jobs", handlers.CreateJob)
-		employer.GET("/jobs", handlers.GetMyJobs)
-		employer.PUT("/jobs/:id", handlers.UpdateJob)
-		employer.DELETE("/jobs/:id", handlers.DeleteJob)
-
-		// Application management
-		employer.GET("/jobs/:id/applications", handlers.GetJobApplications)
-		employer.PUT("/applications/:id/status", handlers.UpdateApplicationStatus)
-	}
-
-	// Admin routes
-	admin := r.Group("/api/admin")
-	admin.Use(middleware.AuthMiddleware(), middleware.AdminMiddleware())
-	{
-		// User management
-		admin.GET("/users", handlers.GetAllUsers)
-		admin.DELETE("/users/:id", handlers.DeleteUser)
-
-		// Job management
-		admin.GET("/jobs", handlers.GetAllJobsAdmin)
-		admin.PUT("/jobs/:id/status", handlers.UpdateJobStatus)
-
-		// Application management
-		admin.GET("/applications", handlers.GetAllApplications)
-
-		// Dashboard stats
-		admin.GET("/stats", handlers.GetDashboardStats)
+		// Follow/Unfollow
+		protected.POST("/users/:id/follow", handlers.FollowUser)
+		protected.DELETE("/users/:id/unfollow", handlers.UnfollowUser)
 	}
 }
